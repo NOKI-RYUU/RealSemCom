@@ -27,12 +27,16 @@ BEST_MODEL_PATHS = {
 }
 LATEST_CHECKPOINT = os.path.join(CHECKPOINT_DIR, "checkpoint_latest.pth")
 
+# 选择信道类型
+CHANNEL_TYPE = "AWGN"  # "AWGN", "Rayleigh", or "Rician"
+K_FACTOR = 5.0  # Rician 信道的 K 因子（如果使用 Rician）
+
 # 初始化模型
 encoder = ViTEncoder().to(DEVICE)
 tx_vit = ViTTransformerTX().to(DEVICE)
 rx_vit = ViTTransformerRX().to(DEVICE)
 decoder = ReconstructionNetwork().to(DEVICE)
-channel = ChannelModel().to(DEVICE)
+channel = ChannelModel(noise_std=0.1, channel_type=CHANNEL_TYPE, k_factor=K_FACTOR).to(DEVICE)
 
 # 加载数据
 dataset = ImageDataset("data/images")
