@@ -78,7 +78,7 @@ class ImageEncoder:
 
 
 if __name__ == "__main__":
-    dataset_path = "./data/images"  # 数据集路径
-    output_root = "./knowledge_bases_coco_crop"  # 存放编码后的数据
+    dataset_path = "coco_dataset/coco_cropped_parts"  # 数据集路径
+    output_root = "coco_dataset/knowledge_bases_coco_crop"  # 存放编码后的数据
     encoder = ImageEncoder(dataset_path, output_root, model_name="vit_base_patch16_224", device="cuda")
     encoder.process_dataset()
