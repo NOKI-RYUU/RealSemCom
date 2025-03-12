@@ -26,12 +26,20 @@ class KnowledgeBaseBuilder:
 
         self.threshold = threshold
 
-        # 读取预编码特征
+        # 读取已编码的特征
         self.features = np.load(os.path.join(self.encoded_path, "image_features.npy"))
         with open(os.path.join(self.encoded_path, "image_metadata.json"), "r") as f:
             self.metadata = json.load(f)
 
-        self.category_index = {}
+        # 组织类别数据
+        self.category_data = {}
+        for idx, data in enumerate(self.metadata):
+            category = data["category"]
+            if category not in self.category_data:
+                self.category_data[category] = {"features": [], "images": []}
+            self.category_data[category]["features"].append(self.features[idx])
+            self.category_data[category]["images"].append(data["image_path"])
+
         self.log_file = os.path.join(self.output_path, "log.txt")
         with open(self.log_file, "w") as log:
             log.write(f"知识库构建开始: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -44,32 +52,56 @@ class KnowledgeBaseBuilder:
             log.write(message + "\n")
 
     def build(self):
-        """构建知识库"""
-        self.log(f"处理 {len(self.metadata)} 张图片...")
-        for idx, data in tqdm(enumerate(self.metadata), total=len(self.metadata), desc="🔍 筛选知识库", unit="img"):
-            category = data["category"]
-            img_path = data["image_path"]
-            feature = self.features[idx]
+        """构建类别内筛选的知识库"""
+        self.log(f"发现 {len(self.category_data)} 个类别，开始筛选...")
 
-            if category not in self.category_index:
-                self.category_index[category] = {"images": [], "features": []}
+        category_index = {}  # 存储类别映射
 
-            similarities = cosine_similarity([feature], self.category_index[category]["features"]) if self.category_index[category]["features"] else [0]
-            if max(similarities) < self.threshold:
-                self.category_index[category]["features"].append(feature)
-                new_img_path = os.path.join(self.image_output_path, category, os.path.basename(img_path))
-                os.makedirs(os.path.dirname(new_img_path), exist_ok=True)
-                shutil.copy(img_path, new_img_path)
-                self.category_index[category]["images"].append(new_img_path)
+        for category, data in tqdm(self.category_data.items(), desc="🔍 处理类别", unit="category"):
+            features = np.array(data["features"])  # 该类别所有特征
+            images = data["images"]  # 该类别所有图片路径
 
-        # 创建 FAISS 索引
-        for category, data in self.category_index.items():
-            faiss_index = faiss.IndexFlatL2(len(data["features"][0]))
-            faiss_index.add(np.array(data["features"]))
-            faiss.write_index(faiss_index, os.path.join(self.faiss_output_path, f"{category}.index"))
+            selected_features = []
+            selected_images = []
 
-        self.log(f"知识库构建完成！")
+            for i, feature in enumerate(features):
+                if selected_features:
+                    similarities = cosine_similarity([feature], selected_features)
+                    max_similarity = similarities.max()
+                else:
+                    max_similarity = 0  # 第一个样本直接加入
+
+                if max_similarity < self.threshold:
+                    selected_features.append(feature)
+                    selected_images.append(images[i])
+
+                    # 复制图片到新的分类文件夹
+                    category_output_path = os.path.join(self.image_output_path, category)
+                    os.makedirs(category_output_path, exist_ok=True)
+                    new_img_path = os.path.join(category_output_path, os.path.basename(images[i]))
+                    shutil.copy(images[i], new_img_path)
+
+            # 构建 FAISS 索引
+            if selected_features:
+                selected_features = np.array(selected_features)
+                faiss_index = faiss.IndexFlatL2(selected_features.shape[1])
+                faiss_index.add(selected_features)
+                faiss.write_index(faiss_index, os.path.join(self.faiss_output_path, f"{category}.index"))
+
+                # 记录类别索引
+                category_index[category] = selected_images
+
+                self.log(f"{category} 知识库构建完成，共 {len(selected_features)} 张图片")
+
+        # 保存类别索引
+        category_index_path = os.path.join(self.output_path, "category_index.json")
+        with open(category_index_path, "w") as f:
+            json.dump(category_index, f, indent=4)
+
+        self.log(f"类别索引已保存至: {category_index_path}")
+        self.log(f"知识库构建完成！共处理 {len(self.category_data)} 个类别")
+
 
 if __name__ == "__main__":
-    builder = KnowledgeBaseBuilder("./knowledge_bases_coco_crop/encoded_features", "./knowledge_bases_coco_crop", threshold=0.3)
+    builder = KnowledgeBaseBuilder("coco_dataset/knowledge_bases_coco_crop/encoded_features", "coco_dataset/knowledge_bases_coco_crop", threshold=0.3)
     builder.build()
