@@ -54,7 +54,7 @@ project_root/
 1. `vit_encoder.py`（**ViT 编码原始图像，冻结参数**）
    - `I_enc = ViT(image)`
    - **查询知识库**：找到最近邻 `I_ref`
-2. `vit_transformer_tx.py`（**计算偏位特征 **）
+2. `vit_transformer_tx.py`（**计算偏位特征**）
    - `F_offset = CrossAttention(I_ref, I_enc)`
    - **门控融合（Gated Fusion）** 控制 `I_ref` 影响权重
 
@@ -71,12 +71,12 @@ project_root/
 
 ### **接收端**
 
-1. `vit_transformer_rx.py`（**恢复 **）
+1. `vit_transformer_rx.py`（**恢复**）
 
    - `F_recovered = CrossAttention(I_ref, F_offset)`
    - **残差门控（Residual Gating）** 适应信道误差
 
-2. `reconstruction_network.py`（**重建图像 **）
+2. `reconstruction_network.py`（**重建图像**）
 
    - `I_rec = ViT + CNN(F_recovered)`
    - **ViT 负责全局信息，CNN 负责局部细节**
