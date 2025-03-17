@@ -1,5 +1,6 @@
 import sys
 import os
+import random
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import argparse
@@ -16,7 +17,6 @@ from models.channel_model import ChannelModel
 from data.dataset import ImageDataset
 from utils import save_checkpoint, save_best_model, load_checkpoint
 from logger import Logger
-
 
 # **✅ 统一路径管理**
 parser = argparse.ArgumentParser(description="Train Semantic Communication System")
@@ -46,9 +46,9 @@ encoder = ViTEncoder().to(DEVICE)
 tx_vit = ViTTransformerTX().to(DEVICE)
 rx_vit = ViTTransformerRX().to(DEVICE)
 decoder = ReconstructionNetwork().to(DEVICE)
-channel = ChannelModel(noise_std=0.1, channel_type=args.channel_type, k_factor=args.k_factor).to(DEVICE)
+channel = ChannelModel(channel_type=args.channel_type, k_factor=args.k_factor).to(DEVICE)
 
-# **✅ 加载数据**
+# **✅ 预加载 FAISS 数据，提高查询效率**
 dataset = ImageDataset(args.data_path, args.faiss_index, args.faiss_vectors)
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=32, pin_memory=True)
 
@@ -74,6 +74,11 @@ best_loss = float("inf")
 
 for epoch in range(EPOCHS):
     epoch_loss = 0
+
+    # **每个 epoch 选择一个随机 SNR**
+    snr = random.randint(0, 10)
+    print(f"📡 Epoch {epoch+1}: 使用 SNR={snr}")
+
     for batch_idx, (image, ref_feature) in enumerate(tqdm(dataloader, desc=f"Epoch {epoch+1}/{EPOCHS}")):
         # **确保数据也在 GPU**
         image, ref_feature = image.to(DEVICE, non_blocking=True), ref_feature.to(DEVICE, non_blocking=True)
@@ -88,8 +93,8 @@ for epoch in range(EPOCHS):
         enc_feature = encoder(image)
         offset_feature = tx_vit(enc_feature, ref_feature)
 
-        # **信道模型**
-        channel_feature = channel(offset_feature)
+        # **信道模型（加入 SNR）**
+        channel_feature = channel(offset_feature, snr)
 
         # **接收端**
         recovered_feature = rx_vit(channel_feature, ref_feature)
