@@ -57,14 +57,18 @@ class KnowledgeBaseBuilder:
 
         category_index = {}  # 存储类别映射
 
-        for category, data in tqdm(self.category_data.items(), desc="🔍 处理类别", unit="category"):
+        for category, data in tqdm(self.category_data.items(), desc="处理类别", unit="category"):
+            # 打印开始处理该类别的消息
+            self.log(f"开始处理类别 {category}...")
+
             features = np.array(data["features"])  # 该类别所有特征
             images = data["images"]  # 该类别所有图片路径
 
             selected_features = []
             selected_images = []
 
-            for i, feature in enumerate(features):
+            # 使用 tqdm 显示类别内部的处理进度
+            for i, feature in tqdm(enumerate(features), desc=f"处理 {category} 内的图片", unit="image", leave=False):
                 if selected_features:
                     similarities = cosine_similarity([feature], selected_features)
                     max_similarity = similarities.max()
