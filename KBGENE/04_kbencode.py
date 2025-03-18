@@ -57,7 +57,7 @@ class ImageEncoder:
         dataset = ImageFolder(root=self.dataset_path, transform=self.transform)
         self.log(f"发现 {len(dataset.imgs)} 张图片，开始编码...")
 
-        for img_path, class_idx in tqdm(dataset.imgs, desc="🔍 编码图像", unit="img"):
+        for img_path, class_idx in tqdm(dataset.imgs, desc="编码图像", unit="img"):
             image = dataset.loader(img_path)  # 读取图像
             image = self.transform(image)  # 预处理
             feature = self.encode_image(image)  # 提取特征
@@ -74,7 +74,7 @@ class ImageEncoder:
         with open(os.path.join(self.output_path, "image_metadata.json"), "w") as f:
             json.dump(self.metadata, f, indent=4)
 
-        self.log(f"✅ 编码完成！已保存 {len(self.features)} 条数据。")
+        self.log(f"编码完成！已保存 {len(self.features)} 条数据。")
 
 
 if __name__ == "__main__":
